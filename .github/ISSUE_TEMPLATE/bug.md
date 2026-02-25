@@ -17,7 +17,7 @@ If possible, check if your issue appears in the nightly version of the compiler!
 ## Minimized code
 
 <!--
-This code should be self contained, compilable (with possible failures) and as small as possible.
+This code should be self-contained, compilable (with possible failures) and as small as possible.
 
 Ideally, we should be able to just copy this code to a file and run `scalac` (and maybe `scala`) to reproduce the issue.
 
