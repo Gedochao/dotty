@@ -30,11 +30,14 @@ import scala.language.implicitConversions
  *
  *  ### Examples
  *
- *  Creates a `Catch` which handles specified exceptions.
- *  ```
+ *  ```scala sc-hidden sc-name:exception-imports-1
  *  import scala.util.control.Exception._
+ *  import scala.util.Try
  *  import java.net._
+ *  ```
  *
+ *  Creates a `Catch` which handles specified exceptions.
+ *  ```scala sc:compile sc-compile-with:exception-imports-1
  *  val s = "https://www.scala-lang.org/"
  *
  *  // Some(https://www.scala-lang.org/)
@@ -52,14 +55,19 @@ import scala.language.implicitConversions
  *  val x4: URL = failAsValue(classOf[MalformedURLException])(defaultUrl)(new URL("htt/xx"))
  *  ```
  *
- *  Creates a `Catch` which logs exceptions using `handling` and `by`.
+ *  ```scala sc-hidden sc-name:exception-imports-2
+ *  import scala.util.control.Exception._
+ *  import java.net._
  *  ```
+ *
+ *  Creates a `Catch` which logs exceptions using `handling` and `by`.
+ *  ```scala sc:compile sc-compile-with:exception-imports-2
  *  def log(t: Throwable): Unit = t.printStackTrace
  *
  *  val withThrowableLogging: Catch[Unit] = handling(classOf[MalformedURLException]) by (log)
  *
  *  def printUrl(url: String) : Unit = {
- *    val con = new URL(url) openConnection()
+ *    val con = new URL(url).openConnection()
  *    val source = scala.io.Source.fromInputStream(con.getInputStream())
  *    source.getLines().foreach(println)
  *  }
@@ -77,8 +85,12 @@ import scala.language.implicitConversions
  *  withThrowableLogging { printUrl(goodUrl) }
  *  ```
  *
- *  Use `unwrapping` to create a `Catch` that unwraps exceptions before rethrowing.
+ *  ```scala sc-hidden sc-name:exception-imports-3
+ *  import scala.util.control.Exception._
  *  ```
+ *
+ *  Use `unwrapping` to create a `Catch` that unwraps exceptions before rethrowing.
+ *  ```scala sc:compile sc-compile-with:exception-imports-3
  *  class AppException(cause: Throwable) extends RuntimeException(cause)
  *
  *  val unwrappingCatch: Catch[Nothing] = unwrapping(classOf[AppException])
@@ -91,9 +103,13 @@ import scala.language.implicitConversions
  *  val result = unwrappingCatch(calcResult)
  *  ```
  *
+ *  ```scala sc-hidden sc-name:exception-imports-4
+ *  import scala.util.control.Exception._
+ *  ```
+ *
  *  Use `failAsValue` to provide a default when a specified exception is caught.
  *
- *  ```
+ *  ```scala sc:compile sc-compile-with:exception-imports-4
  *  val inputDefaulting: Catch[Int] = failAsValue(classOf[NumberFormatException])(0)
  *  val candidatePick = "seven" // scala.io.StdIn.readLine()
  *
@@ -101,8 +117,12 @@ import scala.language.implicitConversions
  *  val pick = inputDefaulting(candidatePick.toInt)
  *  ```
  *
- *  Compose multiple `Catch`s with `or` to build a `Catch` that provides default values varied by exception.
+ *  ```scala sc-hidden sc-name:exception-imports-5
+ *  import scala.util.control.Exception._
  *  ```
+ *
+ *  Compose multiple `Catch`s with `or` to build a `Catch` that provides default values varied by exception.
+ *  ```scala sc:compile sc-compile-with:exception-imports-5
  *  val formatDefaulting: Catch[Int] = failAsValue(classOf[NumberFormatException])(0)
  *  val nullDefaulting: Catch[Int] = failAsValue(classOf[NullPointerException])(-1)
  *  val otherDefaulting: Catch[Int] = nonFatalCatch withApply(_ => -100)
@@ -275,7 +295,7 @@ object Exception {
     def withTry[U >: T](body: => U): scala.util.Try[U] = toTry(Success(body))
 
     /** Creates a `Catch` object with the same `isDefinedAt` logic as this one,
-     *  but with the supplied `apply` method replacing the current one. 
+     *  but with the supplied `apply` method replacing the current one.
      *
      *  @tparam U the result type of the new exception handler
      *  @param f the function to apply to caught exceptions instead of the current handler
@@ -381,8 +401,11 @@ object Exception {
   /** Returns a partially constructed `Catch` object, which you must give
    *  an exception handler function as an argument to `by`.
    *  @example
-   *  ```
-   *   handling(classOf[MalformedURLException], classOf[NullPointerException]) by (_.printStackTrace)
+   *  ```scala sc:compile
+   *  import scala.util.control.Exception._
+   *  import java.net.MalformedURLException
+   *
+   *  handling(classOf[MalformedURLException], classOf[NullPointerException]) by (_.printStackTrace)
    *  ```
    *  @group dsl
    *

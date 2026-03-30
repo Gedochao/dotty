@@ -30,11 +30,13 @@ import caps.Control
  *  `Try` can reduce or eliminate the need for explicit exception handling in all of the places
  *  where an exception might be thrown.
  *
- *  Example:
+ *  ```scala sc-hidden sc-name:try-imports
+ *  import scala.io.StdIn
+ *  import scala.util.{Try, Success, Failure}
  *  ```
- *   import scala.io.StdIn
- *   import scala.util.{Try, Success, Failure}
  *
+ *  Example:
+ *  ```scala sc:compile sc-compile-with:try-imports
  *   def divide: Try[Int] = {
  *     val dividend = Try(StdIn.readLine("Enter an Int that you'd like to divide:\n").toInt)
  *     val divisor = Try(StdIn.readLine("Enter an Int that you'd like to divide by:\n").toInt)

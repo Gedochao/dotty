@@ -28,7 +28,7 @@ import language.experimental.captureChecking
  *  For example, you could use `Either[String, Int]` to indicate whether a
  *  received input is a `String` or an `Int`.
  *
- *  ```
+ *  ```scala sc:compile
  *  import scala.io.StdIn._
  *  val in = readLine("Type Either a string or an Int: ")
  *  val result: Either[String,Int] =
@@ -46,14 +46,14 @@ import language.experimental.captureChecking
  *  `Either` is right-biased, which means that `Right` is assumed to be the default case to
  *  operate on. If it is `Left`, operations like `map` and `flatMap` return the `Left` value unchanged:
  *
- *  ```
+ *  ```scala sc:compile
  *  def doubled(i: Int) = i * 2
  *  Right(42).map(doubled) // Right(84)
  *  Left(42).map(doubled)  // Left(42)
  *  ```
  *
  *  Since `Either` defines the methods `map` and `flatMap`, it can also be used in for comprehensions:
- *  ```
+ *  ```scala sc:compile
  *  val right1 = Right(1)   : Right[Double, Int]
  *  val right2 = Right(2)
  *  val right3 = Right(3)
@@ -77,25 +77,32 @@ import language.experimental.captureChecking
  *    y <- left23
  *    z <- right2
  *  } yield x + y + z // Left(23.0)
+ *  ```
  *
- *  // Guard expressions are not supported:
+ *  Guard expressions are not supported:
+ *  ```scala sc:nocompile
+ *  val right1 = Right(1)   : Right[Double, Int]
  *  for {
  *    i <- right1
  *    if i > 0
  *  } yield i
  *  // error: value withFilter is not a member of Right[Double,Int]
+ *  ```
  *
- *  // Similarly, refutable patterns are not supported:
+ *  Similarly, refutable patterns are not supported:
+ *  ```scala sc:nocompile
+ *  val right1 = Right(1)   : Right[Double, Int]
  *  for (x: Int <- right1) yield x
  *  // error: value withFilter is not a member of Right[Double,Int]
+ *  ```
  *
- *  // To use a filtered value, convert to an Option first,
- *  // which drops the Left case, as None contains no value:
+ *  To use a filtered value, convert to an Option first:
+ *  ```scala sc:compile
+ *  val right1 = Right(1)   : Right[Double, Int]
  *  for {
  *    i <- right1.toOption
  *    if i > 0
  *  } yield i
- *
  *  ```
  *
  *  Since `for` comprehensions use `map` and `flatMap`, the types
@@ -105,12 +112,18 @@ import language.experimental.captureChecking
  *  type argument for type parameter `B`, the right value. Otherwise,
  *  it might be inferred as `Nothing`.
  *
- *  ```
- *  for {
- *    x <- left23
- *    y <- right1
- *    z <- left42  // type at this position: Either[Double, Nothing]
- *  } yield x + y + z
+ *  ```scala sc:compile
+ *  val right1 = Right(1)   : Right[Double, Int]
+ *  val right2 = Right(2)
+ *  val left23 = Left(23.0) : Left[Double, Int]
+ *  val left42 = Left(42.0)
+ *
+ *  // The following shows type inference issues:
+ *  // for {
+ *  //   x <- left23
+ *  //   y <- right1
+ *  //   z <- left42  // type at this position: Either[Double, Nothing]
+ *  // } yield x + y + z
  *  //            ^
  *  // error: ambiguous reference to overloaded definition,
  *  // both method + in class Int of type (x: Char)Int
@@ -118,13 +131,13 @@ import language.experimental.captureChecking
  *  // match argument types (Nothing)
  *
  *  for (x <- right2 ; y <- left23) yield x + y  // Left(23.0)
- *  for (x <- right2 ; y <- left42) yield x + y  // error
+ *  // for (x <- right2 ; y <- left42) yield x + y  // error
  *
- *  for {
- *    x <- right1
- *    y <- left42  // type at this position: Either[Double, Nothing]
- *    z <- left23
- *  } yield x + y + z
+ *  // for {
+ *  //   x <- right1
+ *  //   y <- left42  // type at this position: Either[Double, Nothing]
+ *  //   z <- left23
+ *  // } yield x + y + z
  *  // Left(42.0), but unexpectedly a `Either[Double,String]`
  *  ```
  *
@@ -137,14 +150,27 @@ sealed abstract class Either[+A, +B] extends Product with Serializable {
    *  This allows for-comprehensions over the left side of `Either` instances,
    *  reversing `Either`'s usual right-bias.
    *
-   *  For example ```
+   *  For example ```scala sc:compile
    *  for (s <- Left("flower").left) yield s.length // Left(6)
    *  ```
    *
    *  Continuing the analogy with [[scala.Option]], a `LeftProjection` declares
    *  that `Left` should be analogous to `Some` in some code.
    *
-   *  ```
+   *  ```scala sc:compile
+   *  import java.sql.SQLException
+   *
+   *  // Placeholder types for illustration
+   *  case class Query(query: String)
+   *  case class Result(data: String)
+   *
+   *  // Placeholder functions for illustration
+   *  def getResultFromDatabase(x: Query): Result = Result("data")
+   *  def generateReport(result: Result): String = s"Report: ${result.data}"
+   *  def send(report: String): Unit = ()
+   *  def log(msg: String): Unit = ()
+   *  val someQuery = Query("SELECT * FROM table")
+   *
    *  // using Option
    *  def interactWithDB(x: Query): Option[Result] =
    *    try Some(getResultFromDatabase(x))
@@ -160,20 +186,20 @@ sealed abstract class Either[+A, +B] extends Product with Serializable {
    *  }
    *
    *  // using Either
-   *  def interactWithDB(x: Query): Either[Exception, Result] =
+   *  def interactWithDB2(x: Query): Either[SQLException, Result] =
    *    try Right(getResultFromDatabase(x))
    *    catch {
    *      case e: SQLException => Left(e)
    *    }
    *
    *   // run a report only if interactWithDB returns a Right
-   *   val report = for (result <- interactWithDB(someQuery)) yield generateReport(result)
-   *   report match {
+   *   val report2 = for (result <- interactWithDB2(someQuery)) yield generateReport(result)
+   *   report2 match {
    *     case Right(r) => send(r)
    *     case Left(e)  => log(s"report not generated, reason was \$e")
    *   }
    *   // only report errors
-   *   for (e <- interactWithDB(someQuery).left) log(s"query failed, reason was \$e")
+   *   for (e <- interactWithDB2(someQuery).left) log(s"query failed, reason was \$e")
    *   ```
    */
   def left = Either.LeftProjection(this)
@@ -187,7 +213,7 @@ sealed abstract class Either[+A, +B] extends Product with Serializable {
 
   /** Applies `fa` if this is a `Left` or `fb` if this is a `Right`.
    *
-   *  @example ```
+   *  @example ```scala sc:compile
    *  val result = util.Try("42".toInt).toEither
    *  result.fold(
    *    e => s"Operation failed with \$e",
@@ -208,11 +234,11 @@ sealed abstract class Either[+A, +B] extends Product with Serializable {
 
   /** If this is a `Left`, then return the left value in `Right` or vice versa.
    *
-   *  @example ```
+   *  @example ```scala sc:compile
    *  val left: Either[String, Int]  = Left("left")
    *  val right: Either[Int, String] = left.swap // Result: Right("left")
    *  ```
-   *  @example ```
+   *  @example ```scala sc:compile
    *  val right = Right(2)
    *  val left  = Left(3)
    *  for {
@@ -569,12 +595,15 @@ object Either {
   /** If the condition is satisfied, return the given `B` in `Right`,
    *  otherwise, return the given `A` in `Left`.
    *
-   *  ```
-   *  val userInput: String = readLine()
+   *  ```scala sc:compile
+   *  import scala.io.StdIn
+   *  case class PhoneNumber(number: String)
+   *  val userInput: String = StdIn.readLine()
    *  Either.cond(
    *    userInput.forall(_.isDigit) && userInput.size == 10,
    *    PhoneNumber(userInput),
    *    s"The input (\$userInput) does not look like a phone number"
+   *  )
    *  ```
    *
    *  @tparam A the `Left` type

@@ -25,10 +25,12 @@ import annotation.tailrec
  *  Implemented as described in "Stackless Scala with Free Monads"
  *  [[https://blog.higher-order.com/assets/trampolines.pdf]]
  *
- *  Here's a usage example:
- *  ```
+ *  ```scala sc-hidden sc-name:tailcalls-import
  *  import scala.util.control.TailCalls._
+ *  ```
  *
+ *  Here's a usage example:
+ *  ```scala sc:compile sc-compile-with:tailcalls-import
  *  def isEven(xs: List[Int]): TailRec[Boolean] =
  *    if (xs.isEmpty) done(true) else tailcall(isOdd(xs.tail))
  *

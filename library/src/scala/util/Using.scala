@@ -27,7 +27,7 @@ import scala.runtime.ScalaRunTime.nullForGC
  *  resource opening, operation, and resource releasing in a `Try`.
  *
  *  Example:
- *  ```
+ *  ```scala sc:compile
  *  import java.io.{BufferedReader, FileReader}
  *  import scala.util.{Try, Using}
  *
@@ -42,7 +42,7 @@ import scala.runtime.ScalaRunTime.nullForGC
  *  release are all wrapped in a `Try`.
  *
  *  Example:
- *  ```
+ *  ```scala sc:compile
  *  import java.io.{BufferedReader, FileReader}
  *  import scala.util.{Try, Using}
  *
@@ -62,13 +62,19 @@ import scala.runtime.ScalaRunTime.nullForGC
  *  Composed or "wrapped" resources may be acquired in order of construction,
  *  if "underlying" resources are not closed. Although redundant in this case,
  *  here is the previous example with a wrapped call to `use`:
- *  ```
+ *  ```scala sc:compile
+ *  import java.io.{BufferedReader, FileReader}
+ *  import scala.util.Using
+ *
+ *  Using.Manager { use =>
  *   def mkreader(filename: String) = use(new BufferedReader(use(new FileReader(filename))))
+ *   mkreader("file.txt")
+ *  }
  *  ```
  *
  *  Custom resources can be registered on construction by requiring an implicit `Manager`.
  *  This ensures they will be released even if composition fails:
- *  ```
+ *  ```scala sc:compile
  *  import scala.util.Using
  *
  *  case class X(x: String)(implicit mgr: Using.Manager) extends AutoCloseable {
@@ -98,7 +104,7 @@ import scala.runtime.ScalaRunTime.nullForGC
  *  [[Using.resource `Using.resource`]], which throws any exceptions that occur.
  *
  *  Example:
- *  ```
+ *  ```scala sc:compile
  *  import java.io.{BufferedReader, FileReader}
  *  import scala.util.Using
  *

@@ -20,8 +20,12 @@ import scala.language.`2.13`
  *
  *  As a convenience, `NonFatal` does not match `ControlThrowable`.
  *
- *  ```
+ *  ```scala sc:compile
  *  import scala.util.control.{Breaks, NonFatal}, Breaks.{break, breakable}
+ *
+ *  def log(t: Throwable): Unit = ()
+ *  def p(v: Int): Boolean = v == 3
+ *  val values = (1 to 10).toList
  *
  *  breakable {
  *    for (v <- values) {
