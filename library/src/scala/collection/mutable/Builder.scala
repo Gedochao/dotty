@@ -53,9 +53,14 @@ trait Builder[-A, +To] extends Growable[A] { self: Builder[A, To]^ =>
    *  to have the same size as the given collection, plus some delta.
    *
    *  This method provides a hint only if the collection has a known size,
-   *  as specified by the following pseudocode:
+   *  as specified by the following code:
    *
+   *  ```scala sc-name:builder-sizehint-context sc-hidden
+   *    val coll: scala.collection.IterableOnce[?] = ???
+   *    val delta: Int = 0
+   *    def sizeHint(size: Int): Unit = ()
    *  ```
+   *  ```scala sc-compile-with:builder-sizehint-context
    *    if (coll.knownSize != -1)
    *      if (coll.knownSize + delta <= 0) sizeHint(0)
    *      else sizeHint(coll.knownSize + delta)
