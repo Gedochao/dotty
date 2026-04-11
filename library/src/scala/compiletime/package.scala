@@ -8,8 +8,9 @@ import annotation.{compileTimeOnly, experimental}
 /** Use this method when you have a type, do not have a value for it but want to
  *  pattern match on it. For example, given a type `Tup <: Tuple`, one can
  *  pattern-match on it as follows:
- *  ```scala
+ *  ```scala sc:compile
  *  //{
+ *  import scala.compiletime.*
  *  type Tup
  *  inline def f = {
  *  //}
@@ -29,10 +30,11 @@ def erasedValue[T]: T = erasedValue[T]
 
 /** Used as the initializer of a mutable class or object field, like this:
  *
- *  ```scala
- *  //{
+ *  ```scala sc-hidden sc-name:compiletime-uninitialized-preamble
+ *  import scala.compiletime.*
  *  type T
- *  //}
+ *  ```
+ *  ```scala sc:compile sc-compile-with:compiletime-uninitialized-preamble
  *  var x: T = uninitialized
  *  ```
  *
@@ -45,8 +47,13 @@ def uninitialized: Nothing = ???
 
 /** Used as the right hand side of a given in a trait, like this
  *
+ *  ```scala sc-hidden sc-name:compiletime-deferred-preamble
+ *  import scala.compiletime.*
+ *  trait DeferredHolder:
+ *    type T
  *  ```
- *  given T = deferred
+ *  ```scala sc:compile sc-compile-with:compiletime-deferred-preamble
+ *    given T = deferred
  *  ```
  *
  *  This signifies that the given will get a synthesized definition in all classes
@@ -59,11 +66,14 @@ def deferred: Nothing = ???
 /** The error method is used to produce user-defined compile errors during inline expansion.
  *  If an inline expansion results in a call error(msgStr) the compiler produces an error message containing the given msgStr.
  *
- *  ```scala sc:fail
+ *  ```scala sc-hidden sc-name:compiletime-error-imports
+ *  import scala.compiletime.*
+ *  ```
+ *  ```scala sc:fail sc-compile-with:compiletime-error-imports
  *  error("My error message")
  *  ```
  *  or
- *  ```scala
+ *  ```scala sc:compile sc-compile-with:compiletime-error-imports
  *  inline def errorOnThisCode(inline x: Any) =
  *    error("My error of this code: " + codeOf(x))
  *  ```
@@ -73,7 +83,8 @@ inline def error(inline msg: String): Nothing = ???
 
 /** Returns the string representation of argument code:
  *
- *  ```scala
+ *  ```scala sc:compile
+ *  import scala.compiletime.*
  *  inline def logged(inline p1: Any) =
  *    ("code: " + codeOf(p1), p1)
  *
@@ -98,6 +109,7 @@ transparent inline def codeOf(arg: Any): String =
  *
  *  Usage:
  *  ```scala sc:fail
+ *  import scala.compiletime.*
  *  inline def twice(inline n: Int): Int =
  *    requireConst(n) // compile-time assertion that the parameter `n` is a constant
  *    n + n
@@ -137,8 +149,9 @@ inline def constValueTuple[T <: Tuple]: T =
 
 /** Summons first given matching one of the listed cases. E.g. in
  *
- *  ```scala
+ *  ```scala sc:compile
  *  //{
+ *  import scala.compiletime.*
  *  type A
  *  trait B
  *  type C
