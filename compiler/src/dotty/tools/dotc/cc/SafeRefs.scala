@@ -21,11 +21,10 @@ import typer.ProtoTypes.SelectionProto
 /** Check whether references from safe mode should be allowed */
 object SafeRefs {
 
-  val SkipAnnotsInType: Property.Key[Unit] = Property.Key()
-
   val assumedSafePackages = List(
     "scala", "scala.runtime", "scala.collection.immutable", "scala.compiletime.ops",
     "scala.math", "scala.util", "java.math", "java.time",
+    "java.util.function", "java.util.regex", "java.util.stream"
   )
 
   private def rejectSafe(sym: Symbol)(using Context): Unit =
@@ -80,7 +79,37 @@ object SafeRefs {
     assumeSafe("java.lang.String")
     assumeSafe("java.lang.Throwable")
     assumeSafe("java.lang.Exception")
+    assumeSafe("java.lang.RuntimeException")
+    assumeSafe("java.lang.ArithmeticException")
+    assumeSafe("java.lang.ArrayIndexOutOfBoundsException")
+    assumeSafe("java.lang.ArrayStoreException")
+    assumeSafe("java.lang.ClassCastException")
+    assumeSafe("java.lang.ClassNotFoundException")
+    assumeSafe("java.lang.CloneNotSupportedException")
+    assumeSafe("java.lang.EnumConstantNotPresentException")
+    assumeSafe("java.lang.IllegalAccessException")
     assumeSafe("java.lang.IllegalArgumentException")
+    assumeSafe("java.lang.IllegalMonitorStateException")
+    assumeSafe("java.lang.IllegalStateException")
+    assumeSafe("java.lang.IllegalThreadStateException")
+    assumeSafe("java.lang.IndexOutOfBoundsException")
+    assumeSafe("java.lang.InstantiationException")
+    assumeSafe("java.lang.InterruptedException")
+    assumeSafe("java.lang.NegativeArraySizeException")
+    assumeSafe("java.lang.NoSuchFieldException")
+    assumeSafe("java.lang.NoSuchMethodException")
+    assumeSafe("java.lang.NullPointerException")
+    assumeSafe("java.lang.NumberFormatException")
+    assumeSafe("java.lang.ReflectiveOperationException")
+    assumeSafe("java.lang.SecurityException")
+    assumeSafe("java.lang.StringIndexOutOfBoundsException")
+    assumeSafe("java.lang.TypeNotPresentException")
+    assumeSafe("java.lang.UnsupportedOperationException")
+    // `java.lang.Error` and its subclasses are intentionally not marked safe:
+    // they indicate serious VM-level problems and should not be caught or
+    // thrown from safe code.
+    assumeSafe("java.lang.StackTraceElement")
+    assumeSafe("java.lang.Record")
     assumeSafe("java.lang.CharSequence")
     assumeSafe("java.lang.Comparable")
     assumeSafe("java.lang.Class", except = List(
@@ -207,6 +236,9 @@ object SafeRefs {
   }
 
   private def checkSafeAnnot(ann: Annotation, pos: SrcPos)(using Context): Unit =
+    val span = ann.tree.span
+    // Skip compiler inserted annotations that have no or zero extent span.
+    if !span.exists || span.isZeroExtent then return
     var errpos = ann.tree.srcPos
     if !pos.sourcePos.exists then errpos = pos
     checkNotRejected(ann.symbol, errpos)
@@ -220,6 +252,6 @@ object SafeRefs {
     def checkAnnotatedType(tp: Type) = tp match
       case AnnotatedType(tp, ann) => checkSafeAnnot(ann, tree.srcPos)
       case _ =>
-    if Feature.safeEnabled && !tree.hasAttachment(SkipAnnotsInType) then
+    if Feature.safeEnabled then
       tree.tpe.foreachPart(checkAnnotatedType(_))
 }
