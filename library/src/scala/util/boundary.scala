@@ -18,7 +18,7 @@ import scala.annotation.implicitNotFound
  *
  *  Example usage:
  *
- *  ```scala
+ *  ```scala sc:compile
  *  import scala.util.boundary, boundary.break
  *
  *  def firstIndex[T](xs: List[T], elem: T): Int =

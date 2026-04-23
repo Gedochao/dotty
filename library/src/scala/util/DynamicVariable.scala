@@ -26,13 +26,14 @@ import java.lang.InheritableThreadLocal
  *  parameterless closure, executes. When the second argument finishes,
  *  the variable reverts to the previous value.
  *
- *  ```
+ *  ```scala sc:compile
+ *  val someDynamicVariable = new DynamicVariable[Int](0)
+ *  val newValue = 42
  *  someDynamicVariable.withValue(newValue) {
  *    // ... code called in here that calls value ...
  *    // ... will be given back the newValue ...
  *  }
  *  ```
- *
  *  Each thread gets its own stack of bindings.  When a
  *  new thread is created, the `DynamicVariable` gets a copy
  *  of the stack of bindings from the parent thread, and

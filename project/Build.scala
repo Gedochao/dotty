@@ -3067,11 +3067,7 @@ object ScaladocConfigs {
   }
 
   def snippetCompilerTargets(dottyLibSrc:String) = List(
-    s"$dottyLibSrc/scala=compile",
-    s"$dottyLibSrc/scala/quoted=compile",
-    s"$dottyLibSrc/scala/compiletime=compile",
-    s"$dottyLibSrc/scala/util=compile",
-    s"$dottyLibSrc/scala/util/control=compile",
+    s"$dottyLibSrc/scala=compile"
   )
   // Relative subtrees in `_docs/reference` where snippet compilation is explicitly enabled.
   // Keep this shared with the full docs tasks and the lightweight snippet-check task.
