@@ -1312,9 +1312,6 @@ class CheckCaptures extends Recheck, SymTransformer:
         else if runInConstructor then
           pushConstructorEnv()
 
-        if sym.is(Synthetic) then
-          tree.tpt.putAttachment(SafeRefs.SkipAnnotsInType, ())
-
         checkInferredResult(super.recheckValDef(tree, sym), tree)
       finally
         if !sym.is(Param) then
@@ -1377,15 +1374,11 @@ class CheckCaptures extends Recheck, SymTransformer:
         SafeRefs.checkSafeAnnots(sym)
         for params <- tree.paramss; param <- params do
           SafeRefs.checkSafeAnnots(param.symbol)
-          if !param.symbol.is(Synthetic) then
-            param match
-              case param: ValDef => SafeRefs.checkSafeAnnotsInType(param.tpt)
-              case param: TypeDef => SafeRefs.checkSafeAnnotsInType(param.rhs)
+          param match
+            case param: ValDef => SafeRefs.checkSafeAnnotsInType(param.tpt)
+            case param: TypeDef => SafeRefs.checkSafeAnnotsInType(param.rhs)
 
         checkNoUnboxedReaches(tree)
-
-        if sym.is(Synthetic) then
-          tree.tpt.putAttachment(SafeRefs.SkipAnnotsInType, ())
 
         try checkInferredResult(super.recheckDefDef(tree, sym)(using bodyCtx), tree)
         finally
