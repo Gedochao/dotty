@@ -24,7 +24,6 @@ import typer.ErrorReporting.{err, matchReductionAddendum, substitutableTypeSymbo
 import typer.ProtoTypes.{ViewProto, FunProto}
 import typer.Implicits.*
 import typer.Inferencing
-import scala.util.control.NonFatal
 import StdNames.nme
 import Formatting.{hl, delay}
 import scala.util.matching.Regex
@@ -792,7 +791,7 @@ extends SyntaxMsg(WrongNumberOfTypeArgsID) {
       try fntpe.termSymbol match
         case NoSymbol => fntpe.show
         case symbol   => symbol.showFullName
-      catch case NonFatal(ex) => fntpe.show
+      catch case ex: Exception => fntpe.show
     i"""|$msgPrefix type arguments for $prettyName$expectedArgString
         |expected: $expectedArgString
         |actual:   $actualArgString"""

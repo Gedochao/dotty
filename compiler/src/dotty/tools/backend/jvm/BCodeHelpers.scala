@@ -662,15 +662,13 @@ trait BCodeHelpers(val backendUtils: BackendUtils)(using ctx: Context) extends B
     import scala.tools.asm.util.CheckClassAdapter
     def wrap(body: => Unit): Unit = {
       try body
-      catch {
-        case ex: Throwable =>
-          report.error(
-            em"""|compiler bug: created invalid generic signature for $sym in ${sym.denot.owner.showFullName}
-                 |signature: $sig
-                 |if this is reproducible, please report bug at https://github.com/scala/scala3/issues
-               """, sym.sourcePos)
-          throw ex
-      }
+      catch case ex: Exception =>
+        report.error(
+          em"""|compiler bug: created invalid generic signature for $sym in ${sym.denot.owner.showFullName}
+               |signature: $sig
+               |if this is reproducible, please report bug at https://github.com/scala/scala3/issues
+             """, sym.sourcePos)
+        throw ex
     }
 
     wrap {

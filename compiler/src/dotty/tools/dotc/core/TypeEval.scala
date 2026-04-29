@@ -84,8 +84,8 @@ object TypeEval:
       def runConstantOp[T](op: => T)(using Constant.ValueToConstant[T]): Type =
         val result =
           try op
-          catch case e: Throwable =>
-            throw TypeError(em"${e.getMessage}")
+          catch case ex: Exception =>
+            throw TypeError(em"${ex.getMessage}")
         ConstantType(Constant.fromValue(result))
 
       def fieldsOf: Option[Type] =
