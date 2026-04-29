@@ -10,6 +10,7 @@ import CaptureSet.{Refs, emptyRefs, HiddenSet}
 import NameKinds.WildcardParamName
 import config.Printers.capt
 import StdNames.nme
+import transform.LiftCoverage
 import util.{SimpleIdentitySet, EqHashMap, SrcPos}
 import tpd.*
 import reflect.ClassTag
@@ -599,13 +600,22 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
       case _ =>
   end checkAssign
 
+  /** Is `tree` a coverage-lifted local temp or a reference to one?
+   *  These aliases are identified through the attachment set by `LiftCoverage`,
+   *  not by broad synthetic checks.
+   */
+  private def isCoverageLiftedTemp(tree: Tree)(using Context): Boolean = tree match
+    case tree: ValDef => tree.symbol.exists && LiftCoverage.isCoverageLiftedTemp(tree.symbol)
+    case tree: Ident => tree.symbol.exists && LiftCoverage.isCoverageLiftedTemp(tree.symbol)
+    case _ => false
+
   /** 1. Check that the capabilities used at `tree` don't overlap with
    *     capabilities hidden by a previous definition.
    *  2. Also check that none of the used capabilities was consumed before.
    */
   def checkUse(tree: Tree)(using Context): Unit =
     val used = tree.markedFree.elems
-    if !used.isEmpty then
+    if !used.isEmpty && !isCoverageLiftedTemp(tree) then
       capt.println(i"check use $tree: $used")
       val usedPeaks = used.allPeaks
       if !defsShadow.allPeaks.sharedPeaks(usedPeaks).isEmpty then
@@ -994,6 +1004,8 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
   /** Check (result-) type of `tree` for separation conditions using `checkType`.
    *  Excluded are parameters and definitions that have an =unsafeAssumeSeparate
    *  application as right hand sides.
+   *  Also excluded are local temps marked by `LiftCoverage`, which are aliases
+   *  introduced solely to preserve coverage evaluation order.
    *  Hidden sets of checked definitions are added to `defsShadow`.
    */
   def checkValOrDefDef(tree: ValOrDefDef)(using Context): Unit =
@@ -1001,6 +1013,7 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
     if !sym.isOneOf(TermParamOrAccessor)
        && !sym.needsResultRefinement
        && !isUnsafeAssumeSeparate(tree.rhs)
+       && !isCoverageLiftedTemp(tree)
     then
       checkType(tree.tpt, sym)
       capt.println(i"sep check def $sym: ${tree.tpt} with ${spanCaptures(tree.tpt).transHiddenSet.directFootprint}")

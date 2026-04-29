@@ -11,7 +11,6 @@ import Symbols.*
 import Names.*
 import NameKinds.UniqueName
 import util.Spans.*
-import util.Property
 import collection.mutable
 import Trees.*
 
@@ -52,6 +51,9 @@ abstract class Lifter {
   protected def liftedExprType(expr: Tree)(using Context): Type =
     expr.tpe.widen.deskolemized
 
+  /** Hook for lifters that need to record or mark freshly created lifted defs. */
+  protected def onLiftedDef(tree: Tree)(using Context): Unit = ()
+
   private def lift(defs: mutable.ListBuffer[Tree], expr: Tree, prefix: TermName = EmptyTermName)(using Context): Tree =
     if (noLift(expr)) expr
     else {
@@ -63,10 +65,12 @@ abstract class Lifter {
         // Lifted definitions will be added to a local block, so they need to be
         // at a higher nesting level to prevent leaks. See tests/pos/i15174.scala
         nestingLevel = ctx.nestingLevel + 1)
-      defs += liftedDef(lifted, expr)
+      val liftedTree = liftedDef(lifted, expr)
         .withSpan(expr.span)
         .changeNonLocalOwners(lifted)
         .setDefTree
+      onLiftedDef(liftedTree)
+      defs += liftedTree
       ref(lifted.termRef).withSpan(expr.span.focus)
     }
 
@@ -186,53 +190,6 @@ class LiftComplex extends Lifter {
   def noLift(expr: tpd.Tree)(using Context): Boolean = tpd.isPurePath(expr)
 }
 object LiftComplex extends LiftComplex
-
-/** Lift impure + lift the prefixes */
-object LiftCoverage extends LiftImpure {
-
-  // Property indicating whether we're currently lifting the arguments of an application
-  private val LiftingArgs = new Property.Key[Boolean]
-
-  private inline def liftingArgs(using Context): Boolean =
-    ctx.property(LiftingArgs).contains(true)
-
-  private def liftingArgsContext(using Context): Context =
-    ctx.fresh.setProperty(LiftingArgs, true)
-
-  /** Variant of `noLift` for the arguments of applications.
-   *  To produce the right coverage information (especially in case of exceptions), we must lift:
-   *  - all the applications, except the erased ones
-   *  - all the impure arguments
-   *
-   * There's no need to lift the other arguments.
-   */
-  private def noLiftArg(arg: tpd.Tree)(using Context): Boolean =
-    arg match
-      case a: tpd.Apply => a.symbol.is(Erased) // don't lift erased applications, but lift all others
-      case tpd.Block(stats, expr) => stats.forall(noLiftArg) && noLiftArg(expr)
-      case tpd.Inlined(_, bindings, expr) => noLiftArg(expr)
-      case tpd.Typed(expr, _) => noLiftArg(expr)
-      case _ => super.noLift(arg)
-
-  override def noLift(expr: tpd.Tree)(using Context) =
-    if liftingArgs then noLiftArg(expr) else super.noLift(expr)
-
-  /** Preserve singleton precision for lifted coverage temps when the underlying value is a
-   *  compile-time constant (same notion ConstFold uses), so constant re-folding after lifting
-   *  still matches the original inferred singleton type. Everything else uses the base widen.
-   */
-  override protected def liftedExprType(expr: tpd.Tree)(using Context): Type =
-    val dealiased = expr.tpe.dealias.deskolemized
-    dealiased.widenTermRefExpr.normalized.simplified match
-      case _: ConstantType => dealiased
-      case _ => super.liftedExprType(expr)
-
-  def liftForCoverage(defs: mutable.ListBuffer[tpd.Tree], tree: tpd.Apply)(using Context) = {
-    val liftedFun = liftApp(defs, tree.fun)
-    val liftedArgs = liftArgs(defs, tree.fun.tpe, tree.args)(using liftingArgsContext)
-    tpd.cpy.Apply(tree)(liftedFun, liftedArgs)
-  }
-}
 
 /** Lifter for eta expansion */
 object EtaExpansion extends LiftImpure {
