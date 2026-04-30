@@ -68,7 +68,7 @@ object Build {
   val baseVersion = s"$developedVersion-RC1"
 
   /** The version of TASTY that should be emitted, checked in runtime test
-   *  For defails on how TASTY version should be set see related discussions:
+   *  For details on how TASTY version should be set see related discussions:
    *    - https://github.com/scala/scala3/issues/13447#issuecomment-912447107
    *    - https://github.com/scala/scala3/issues/14306#issuecomment-1069333516
    *    - https://github.com/scala/scala3/pull/19321
@@ -81,7 +81,7 @@ object Build {
    *    - TASTY experimental version:
    *      - in main (NIGHTLY) is always experimental
    *      - in release candidate branch is experimental if {patch == 0}
-   *      - in stable release is always non-experimetnal
+   *      - in stable release is always non-experimental
    */
   val expectedTastyVersion = "28.9-experimental-1"
   checkReleasedTastyVersion()
@@ -103,7 +103,7 @@ object Build {
   def isNightly = sys.env.get("NIGHTLYBUILD").contains("yes")
   def isBenchmark = sys.env.get("BENCHMARKBUILD").contains("yes")
 
-  /** Version calculate for `nonbootstrapped` projects */
+  /** Version calculated for `nonbootstrapped` projects */
   val dottyNonBootstrappedVersion = {
     // Make sure sbt always computes the scalaBinaryVersion correctly
     val bin = if (!dottyVersion.contains("-bin")) "-bin" else ""
@@ -244,7 +244,7 @@ object Build {
   )
 
   lazy val disableDocSetting =
-      // This is a legacy settings, we should reevalute generating javadocs
+      // This is a legacy settings, we should reevaluate generating javadocs
       Compile / doc / sources := Seq()
 
   lazy val commonSettings = publishSettings ++ Seq(
@@ -787,7 +787,7 @@ object Build {
       scalaVersion  := referenceVersion, // nonbootstrapped artifacts are compiled with the reference compiler (already officially published)
       crossPaths    := false, // org.scala-lang:scala3-sbt-bridge doesn't have a crosspath
       autoScalaLibrary := false, // do not add a dependency to stdlib, we depend transitively on the stdlib from `scala3-compiler-nonbootstrapped`
-      // Add the source directories for the sbt-bridge (non-boostrapped)
+      // Add the source directories for the sbt-bridge (non-bootstrapped)
       Compile / unmanagedSourceDirectories := Seq(baseDirectory.value / "src"),
       Test    / unmanagedSourceDirectories := Seq(baseDirectory.value / "test"),
       Compile / resourceDirectory := baseDirectory.value / "resources",
