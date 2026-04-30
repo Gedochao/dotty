@@ -35,7 +35,7 @@ object SepCheck:
   enum Captures derives CanEqual:
     case None
     case Explicit   // one or more explicitly declared captures
-    case Hidden     // exacttly one hidden captures
+    case Hidden     // exactly one hidden captures
     case NeedsCheck // one hidden capture and one other capture (hidden or declared)
 
     def add(that: Captures): Captures =
@@ -52,7 +52,7 @@ object SepCheck:
     case Qualifier(qual: Tree, meth: Symbol)
     case RHS(rhs: Tree, mvar: Symbol)
 
-    /** If this is a Result tole, the associated symbol, otherwise NoSymbol */
+    /** If this is a Result role, the associated symbol, otherwise NoSymbol */
     def dclSym = this match
       case Result(sym, _) => sym
       case _ => NoSymbol
@@ -86,7 +86,7 @@ object SepCheck:
     /** The references in the set. The array should be treated as immutable in client code */
     def refs: Array[Capability]
 
-    /** The associated source positoons and type roles. The array should be treated as immutable in client code */
+    /** The associated source positions and type roles. The array should be treated as immutable in client code */
     def locs: Array[(SrcPos, TypeRole)]
 
     /** The number of references in the set */
@@ -1021,10 +1021,10 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
 
   def inSection[T](op: => T)(using Context): T =
     val savedDefsShadow = defsShadow
-    val savedPrevionsDefs = previousDefs
+    val savedPreviousDefs = previousDefs
     try op
     finally
-      previousDefs = savedPrevionsDefs
+      previousDefs = savedPreviousDefs
       defsShadow = savedDefsShadow
 
   def traverseSection[T](tree: Tree)(using Context) = inSection(traverseChildren(tree))
