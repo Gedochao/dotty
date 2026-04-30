@@ -22,12 +22,12 @@ import Capabilities.*
  *  methods below. Rough summary:
  *
  *   - Hidden sets of arguments must not be referred to in the same application
- *   - Hidden sets of (result-) types must not be referred to alter in the same scope.
+ *   - Hidden sets of (result-) types must not be referred to later in the same scope.
  *   - Returned hidden sets can only refer to consume parameters.
- *   - If returned hidden sets refer to an encloding this, the reference must be
+ *   - If returned hidden sets refer to an enclosing this, the reference must be
  *     from a consume method.
  *   - Consumed entities cannot be used subsequently.
- *   - Entitites cannot be consumed in a loop.
+ *   - Entities cannot be consumed in a loop.
  */
 object SepCheck:
 
@@ -35,7 +35,7 @@ object SepCheck:
   enum Captures derives CanEqual:
     case None
     case Explicit   // one or more explicitly declared captures
-    case Hidden     // exactly one hidden captures
+    case Hidden     // exactly one hidden capture
     case NeedsCheck // one hidden capture and one other capture (hidden or declared)
 
     def add(that: Captures): Captures =
@@ -340,7 +340,7 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
   /** The set of references that were consumed so far in the current method */
   private var consumed: MutConsumedSet = MutConsumedSet()
 
-  /** Infos aboput Labeled expressions enclosing the current traversal point.
+  /** Infos about Labeled expressions enclosing the current traversal point.
    *  For each labeled expression, it's label name, and a list buffer containing
    *  all consumed sets of return expressions referring to that label.
    */
