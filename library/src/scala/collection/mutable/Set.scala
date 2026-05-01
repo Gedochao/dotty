@@ -62,7 +62,11 @@ transparent trait SetOps[A, +CC[X], +C <: SetOps[A, CC, C]]
    *  This method allows one to add or remove an element `elem`
    *  from this set depending on the value of parameter `included`.
    *  Typically, one would use the following syntax:
+   *  ```scala sc-name:set-update-context sc-hidden
+   *     val set = scala.collection.mutable.Set(1)
+   *     val elem = 1
    *  ```
+   *  ```scala sc-compile-with:set-update-context
    *     set(elem) = true  // adds element
    *     set(elem) = false // removes element
    *  ```

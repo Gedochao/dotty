@@ -407,17 +407,10 @@ private[collection] object HashTable {
 
     protected[collection] def elemHashCode(key: KeyType) = key.##
 
-    /** Defer to a high-quality hash in [[scala.util.hashing]].
-     *  The goal is to distribute across bins as well as possible even if a hash code has low entropy at some bits.
-     *  <p/>
-     *  OLD VERSION - quick, but bad for sequence 0-10000 - little entropy in higher bits - since 2003
-     *  ```
-     *  var h: Int = hcode + ~(hcode << 9)
-     *  h = h ^ (h >>> 14)
-     *  h = h + (h << 4)
-     *  h ^ (h >>> 10)
-     *  ```
-     *  the rest of the computation is due to SI-5293
+    /** Defer to high-quality bit mixing in [[scala.util.hashing]].
+     *  The current implementation byte-swaps the original hash code and rotates it by a
+     *  seed derived from the table size, to help spread entries across bins even when the
+     *  original hash code has low entropy in some bits.
      *
      *  @param hcode the original hash code to improve
      *  @param seed the seed value derived from the table size, used to rotate the hash
