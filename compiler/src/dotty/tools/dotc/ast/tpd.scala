@@ -273,11 +273,8 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
         val (rtp, paramss) = recur(tp.instantiate(tparams.map(_.typeRef)), remaining1)
         (rtp, tparams :: paramss)
       case tp: MethodType =>
-        val isParamDependent = tp.isParamDependent
-        val previousParamRefs: mutable.ListBuffer[TermRef] =
-          // It is ok to assign `null` here.
-          // If `isParamDependent == false`, the value of `previousParamRefs` is not used.
-          if isParamDependent then mutable.ListBuffer[TermRef]() else (null: mutable.ListBuffer[TermRef] | Null).uncheckedNN
+        val previousParamRefs: mutable.ListBuffer[TermRef] | Null =
+          if tp.isParamDependent then mutable.ListBuffer[TermRef]() else null
 
         def valueParam(name: TermName, origInfo: Type, isErased: Boolean): TermSymbol =
           val maybeImplicit =
@@ -288,7 +285,7 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
 
           def makeSym(info: Type) = newSymbol(sym, name, TermParam | maybeImplicit | maybeErased, info, coord = sym.coord)
 
-          if isParamDependent then
+          if previousParamRefs ne null then
             val sym = makeSym(origInfo.substParams(tp, previousParamRefs.toList))
             previousParamRefs += sym.termRef
             sym
@@ -1415,7 +1412,7 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
 
   @tailrec
   def sameTypes(trees: List[tpd.Tree], trees1: List[tpd.Tree]): Boolean =
-    if (trees.isEmpty) trees.isEmpty
+    if (trees.isEmpty) trees1.isEmpty
     else if (trees1.isEmpty) trees.isEmpty
     else (trees.head.tpe eq trees1.head.tpe) && sameTypes(trees.tail, trees1.tail)
 
