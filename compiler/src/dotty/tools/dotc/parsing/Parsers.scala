@@ -6,7 +6,7 @@ import scala.annotation.tailrec
 import scala.annotation.threadUnsafe as tu
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.BitSet
-import util.{ SourceFile, SourcePosition, NoSourcePosition }
+import util.{SourceFile, SourcePosition, NoSourcePosition, SrcPos}
 import Tokens.*
 import Scanners.*
 import xml.MarkupParsers.MarkupParser
@@ -135,6 +135,13 @@ object Parsers {
 
     def atSpan[T <: Positioned](start: Offset)(t: T): T =
       atSpan(start, start)(t)
+
+    inline def atNameSpan[T <: NameTree](start: Offset)(inline tree: => T): T =
+      val backquoted = in.token == BACKQUOTED_IDENT
+      atSpan(start, if backquoted then in.offset + 1 else in.offset):
+        tree.tap: t =>
+          if backquoted && !t.hasAttachment(Backquoted) then
+            t.pushAttachment(Backquoted, ())
 
     def startOffset(t: Positioned): Int =
       if (t.span.exists) t.span.start else in.offset
@@ -1291,9 +1298,7 @@ object Parsers {
       if (isIdent) {
         val name = in.name.nn
         if name == nme.CONSTRUCTOR || name == nme.STATIC_CONSTRUCTOR then
-          report.error(
-            em"""Illegal backquoted identifier: `<init>` and `<clinit>` are forbidden""",
-            in.sourcePos())
+          report.error(IllegalIdentifier(name), in.sourcePos())
         in.nextToken()
         name
       }
@@ -1301,6 +1306,13 @@ object Parsers {
         syntaxErrorOrIncomplete(ExpectedTokenButFound(IDENTIFIER, in.token))
         nme.ERROR
       }
+
+    extension (nameTree: NameTree)
+      inline def checkPatternName: nameTree.type =
+        if !isBackquoted(nameTree) && nameTree.name.toSimpleName.contains('$') then
+          report.errorOrMigrationWarning(
+            IllegalIdentifier(nameTree.name), nameTree.srcPos, MigrationVersion.IdentifierDollars)
+        nameTree
 
     /** Accept identifier and return Ident with its name as a term name. */
     def termIdent(): Ident =
@@ -1314,7 +1326,7 @@ object Parsers {
       val tree = Ident(name)
       if (tok == BACKQUOTED_IDENT) tree.pushAttachment(Backquoted, ())
 
-      // Make sure that even trees with parsing errors have a offset that is within the offset
+      // Make sure that even trees with parsing errors have an offset that is within the offset
       val errorOffset = offset min (in.lastOffset - 1)
       if (tree.name == nme.ERROR && tree.span == NoSpan) tree.withSpan(Span(errorOffset, errorOffset))
       else atSpan(offset)(tree)
@@ -3458,7 +3470,9 @@ object Parsers {
           p = atSpan(startOffset(t), in.offset) { TypeApply(p, typeArgs(namedOK = false, wildOK = false)) }
         if (in.token == LPAREN)
           p = atSpan(startOffset(t), in.offset) { Apply(p, argumentPatterns()) }
-        p
+        p match
+          case nt: NameTree if isVarPattern(nt) => nt.checkPatternName
+          case p => p
 
     /** Patterns          ::=  Pattern [`,' Pattern]
      *                      |  NamedPattern {‘,’ NamedPattern}
@@ -3820,7 +3834,7 @@ object Parsers {
             mods = addModifier(mods)
           mods |= Param
         }
-        atSpan(start, nameStart) {
+        atNameSpan(start) {
           val name = ident() match
             case nme.using if !in.isColon =>
               val msg = ExpectedTokenButFoundSoftKeyword(expected = COLONop, found = in.token, nme.using, paramModAdvice)
@@ -4397,7 +4411,7 @@ object Parsers {
     /** ClassDef ::= id ClassConstr TemplateOpt
      */
     def classDef(start: Offset, mods: Modifiers): TypeDef =
-      val td = atSpan(start, nameStart):
+      val td = atNameSpan(start):
         val name = ident().toTypeName
         val constr = classConstr(if mods.is(Case) then ParamOwner.CaseClass else ParamOwner.Class)
         val templ = templateOpt(constr)
@@ -4421,13 +4435,10 @@ object Parsers {
     /** ObjectDef       ::= id TemplateOpt
      */
     def objectDef(start: Offset, mods: Modifiers): ModuleDef =
-      val md = atSpan(start, nameStart):
+      val md = atNameSpan(start):
         val nameIdent = termIdent()
         val templ = templateOpt(emptyConstructor)
         ModuleDef(nameIdent.name.asTermName, templ)
-          .tap: md =>
-            if nameIdent.isBackquoted then
-              md.pushAttachment(Backquoted, ())
       finalizeDef(md, mods, start)
 
     // We allow `infix` and `into` on `enum` definitions.
@@ -4445,14 +4456,13 @@ object Parsers {
 
     /**  EnumDef ::=  id ClassConstr InheritClauses EnumBody
      */
-    def enumDef(start: Offset, mods: Modifiers): TypeDef = atSpan(start, nameStart) {
+    def enumDef(start: Offset, mods: Modifiers): TypeDef = atNameSpan(start):
       val mods1 = checkEnumModifiers(mods, "")
       val modulName = ident()
       val clsName = modulName.toTypeName
       val constr = classConstr(ParamOwner.Class)
       val templ = template(constr, isEnum = true)
       finalizeDef(TypeDef(clsName, templ), mods1, start)
-    }
 
     /** EnumCase = `case' (id ClassConstr [`extends' ConstrApps] | ids)
      */
