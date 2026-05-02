@@ -516,7 +516,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             else t1
     }
 
-    val tp1 = toCapturing(tp)
+    val tp1 = ccState.withNoVarsMapped(toCapturing(tp))
     if tp1 ne tp then capt.println(i"expanded explicit in ${ctx.owner}: $tp  -->  $tp1")
     val tp2 = if sym.isType then stripImpliedCaptureSet(tp1) else tp1
     if tp2.containsGlobalFreshDirectly then
