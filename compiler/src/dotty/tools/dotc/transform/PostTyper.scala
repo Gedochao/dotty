@@ -107,6 +107,13 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
     initContextCalled = true
     compilingScala2StdLib = Feature.shouldBehaveAsScala2(using ctx)
 
+  /** The anonymous function symbols that need an explicified result type
+   *  if their right hand side is also a closure. This is the case if
+   *  the closure's type forms part of the type of a valdef or defdef
+   *  that has a polymorphic closure type.
+   */
+  private val closuresNeedingExplicify = mutable.Set[Symbol]()
+
   val superAcc: SuperAccessors = new SuperAccessors(thisPhase)
   val synthMbr: SyntheticMembers = new SyntheticMembers(thisPhase)
   val beanProps: BeanProperties = new BeanProperties(thisPhase)
@@ -397,6 +404,72 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
         case _ =>
           tpt
 
+    /** If the (return-) type of the ValDef or DefDef is an InferredType, make it
+     *  a non-inferred type under ccEnabled so that embedded retains annotations are kept,
+     *  provided one of the following three conditions holds:
+     *   (1) The definition overrides some other declaration. For an overriding symbol the
+     *       retains annotations come from the explicitly declared parent types, so should
+     *       be kept.
+     *   (2) The definition is not a closure, but its right hand side is a
+     *       closure that is either itself polymorphic or is the prefix
+     *       of a curried polymorphic closure. In this case we need to keep
+     *       references to bound capset variables in retains clauses of subsequent
+     *       parameters. The final result type of the (possibly curried) closure
+     *       will be turned into an inferred type by adding a `@caps.inferred`
+     *       annotation to it.
+     *   (3) The definition is a closure that is a curried result of the
+     *       right hand side of a defininition meeting condition (2).
+     */
+    private def explicifyTpt(tree: ValOrDefDef)(using Context): Tree = tree.tpt match
+      case tpt: InferredTypeTree if Feature.ccEnabled =>
+        if tree.symbol.allOverriddenSymbols.hasNext then
+          tpd.cpy.TypeTree(tpt)(inferred = false)
+        else
+          def hasPolyClosure(mdef: DefDef): Boolean =
+            mdef.symbol.info.isInstanceOf[PolyType]
+            || mdef.rhs.match
+                case closureDef(mdef1) => hasPolyClosure(mdef1)
+                case _ => false
+          val needsExplicify = tree.rhs match
+            case closureDef(mdef) =>
+              if tree.symbol.isAnonymousFunction
+              then closuresNeedingExplicify.remove(tree.symbol)
+              else hasPolyClosure(mdef)
+            case _ =>
+              false
+          if needsExplicify then
+            val tpe1 = makeResultTypeInferred(tpt.tpe, tree.rhs)
+            if tpe1 `ne` tpt.tpe
+            then TypeTree(tpe1, inferred = false).withSpan(tree.span).withAttachmentsFrom(tpt)
+            else tpt
+          else tpt
+      case tpt =>
+        tpt
+
+    /** Insert a `@caps.inferred` annotation on the final result type
+     *  if a function type `tp` corresponding to a closure `tp`. "Final"
+     *  means: a result type that does not correspond to a nested closure.
+     */
+    private def makeResultTypeInferred(tp: Type, rhs: Tree)(using Context): Type = rhs match
+      case closureDef(mdef) =>
+        closuresNeedingExplicify += mdef.symbol
+        tp match
+          case tp @ AppliedType(tycon, args) if defn.isNonRefinedFunction(tp) =>
+            val res = args.last
+            val res1 = makeResultTypeInferred(res, mdef.rhs)
+            if res1 eq res then tp
+            else tp.derivedAppliedType(tycon, args.init :+ res1)
+          case tp @ defn.RefinedFunctionOf(rinfo) =>
+            val rinfo1 = makeResultTypeInferred(rinfo, rhs)
+            tp.derivedRefinedType(refinedInfo = rinfo1)
+          case tp: MethodType =>
+            tp.derivedLambdaType(resType = makeResultTypeInferred(tp.resType, mdef.rhs))
+          case tp: PolyType =>
+            tp.derivedLambdaType(resType = makeResultTypeInferred(tp.resType, rhs))
+      case _ =>
+        if tp.hasAnnotation(defn.InferredAnnot) then tp
+        else AnnotatedType(CleanupRetains()(tp), Annotation(defn.InferredAnnot, rhs.span))
+
     /** If one of `trees` is a spread of an expression that is not idempotent, lift out all
      *  non-idempotent expressions (not just the spreads) and apply `within` to the resulting
      *  pure references. Otherwise apply `within` to the original trees.
@@ -582,7 +655,7 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
           annotateExperimentalCompanion(tree.symbol)
           registerIfHasMacroAnnotations(tree)
           Checking.checkPolyFunctionType(tree.tpt)
-          val tree1 = cpy.ValDef(tree)(tpt = makeOverrideTypeDeclared(tree.symbol, tree.tpt))
+          val tree1 = cpy.ValDef(tree)(tpt = explicifyTpt(tree))
           if tree1.removeAttachment(desugar.UntupledParam).isDefined then
             checkStableSelection(tree.rhs)
           processValOrDefDef(super.transform(tree1))
@@ -590,7 +663,7 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
           registerIfHasMacroAnnotations(tree)
           Checking.checkPolyFunctionType(tree.tpt)
           annotateContextResults(tree)
-          val tree1 = cpy.DefDef(tree)(tpt = makeOverrideTypeDeclared(tree.symbol, tree.tpt))
+          val tree1 = cpy.DefDef(tree)(tpt = explicifyTpt(tree))
           processValOrDefDef(superAcc.wrapDefDef(tree1)(super.transform(tree1).asInstanceOf[DefDef]))
         case tree: TypeDef =>
           registerIfHasMacroAnnotations(tree)
