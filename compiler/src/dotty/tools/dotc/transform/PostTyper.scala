@@ -26,6 +26,7 @@ import cc.*
 import dotty.tools.dotc.transform.MacroAnnotations.hasMacroAnnotation
 import dotty.tools.dotc.core.NameKinds.DefaultGetterName
 import ast.TreeInfo
+import dotty.tools.dotc.cc.derivedFunctionOrMethod
 
 object PostTyper {
   val name: String = "posttyper"
@@ -454,18 +455,11 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
       case closureDef(mdef) =>
         closuresNeedingExplicify += mdef.symbol
         tp match
-          case tp @ AppliedType(tycon, args) if defn.isNonRefinedFunction(tp) =>
-            val res = args.last
-            val res1 = makeResultTypeInferred(res, mdef.rhs)
-            if res1 eq res then tp
-            else tp.derivedAppliedType(tycon, args.init :+ res1)
-          case tp @ defn.RefinedFunctionOf(rinfo) =>
-            val rinfo1 = makeResultTypeInferred(rinfo, rhs)
-            tp.derivedRefinedType(refinedInfo = rinfo1)
-          case tp: MethodType =>
-            tp.derivedLambdaType(resType = makeResultTypeInferred(tp.resType, mdef.rhs))
-          case tp: PolyType =>
-            tp.derivedLambdaType(resType = makeResultTypeInferred(tp.resType, rhs))
+          case FunctionOrMethod(args, res) =>
+            val rhs1 = args match
+              case (_: TypeBounds) :: _ => rhs
+              case _ => mdef.rhs
+            tp.derivedFunctionOrMethod(args, makeResultTypeInferred(res, rhs1))
       case _ =>
         if tp.hasAnnotation(defn.InferredAnnot) then tp
         else AnnotatedType(CleanupRetains()(tp), Annotation(defn.InferredAnnot, rhs.span))
