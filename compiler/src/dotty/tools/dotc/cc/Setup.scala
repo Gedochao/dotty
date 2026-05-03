@@ -358,12 +358,6 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
           case AnnotatedType(parent, annot)
           if annot.symbol == defn.DeclaredAnnot =>
             transformExplicitType(parent, sym)
-          case tp: TypeLambda =>
-            // Don't recurse into parameter bounds, just cleanup any stray retains annotations
-            addVar(
-              tp.derivedLambdaType(
-                paramInfos = tp.paramInfos.mapConserve(_.dropAllRetains.bounds),
-                resType = this(tp.resType)))
           case tp @ RefinedType(parent, rname, rinfo) =>
             val saved = refiningNames
             refiningNames += rname

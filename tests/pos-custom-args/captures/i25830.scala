@@ -9,8 +9,11 @@ class File
   val files: List[File^{x}] = List(x)
   val result = convert[{x}](files)
 
+  val globalFile: File^ = File()
+
   val convertCurried =
     { [C^] => (xs: List[File^{C}]) => (ys: List[File^{C}]) =>
+        println(globalFile)
         xs.map(_ => ()) ++ ys.map(_ => ())
     }
   val resultCurried = convertCurried[{x}](files)(files)

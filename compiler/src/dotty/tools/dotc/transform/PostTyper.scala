@@ -405,21 +405,21 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
         case _ =>
           tpt
 
-    /** If the (return-) type of the ValDef or DefDef is an InferredType, make it
-     *  a non-inferred type under ccEnabled so that embedded retains annotations are kept,
-     *  provided one of the following three conditions holds:
-     *   (1) The definition overrides some other declaration. For an overriding symbol the
-     *       retains annotations come from the explicitly declared parent types, so should
-     *       be kept.
-     *   (2) The definition is not a closure, but its right hand side is a
+    /** Under ccEnabled, If the (return-) type of the ValDef or DefDef is an InferredType,
+     *  make (some parts of) it non-inferred types so that embedded retains annotations
+     *  are kept. Specifically:
+     *   (1) If definition overrides some other declaration, make its type non-inferred.
+     *       For an overriding symbol the retains annotations come from the explicitly
+     *       declared parent types, so should be kept.
+     *   (2) If the definition is not a closure, but its right hand side is a
      *       closure that is either itself polymorphic or is the prefix
-     *       of a curried polymorphic closure. In this case we need to keep
-     *       references to bound capset variables in retains clauses of subsequent
-     *       parameters. The final result type of the (possibly curried) closure
-     *       will be turned into an inferred type by adding a `@caps.inferred`
-     *       annotation to it.
-     *   (3) The definition is a closure that is a curried result of the
-     *       right hand side of a defininition meeting condition (2).
+     *       of a curried polymorphic closure, make all parameter types corresponding
+     *       to nested closures non-inferred by adding `@caps.declared` annotations.
+     *       In this case we need to keep references to bound capset variables in retains
+     *       clauses of subsequent parameters.
+     *   (3) If the definition is a closure that is a curried result of the
+     *       right hand side of a defininition meeting condition (2), also make
+     *       its parameter types non-inferred as specified by (2).
      */
     private def explicifyTpt(tree: ValOrDefDef)(using Context): Tree = tree.tpt match
       case tpt: InferredTypeTree if Feature.ccEnabled =>
@@ -439,30 +439,42 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
             case _ =>
               false
           if needsExplicify then
-            val tpe1 = makeResultTypeInferred(tpt.tpe, tree.rhs)
+            val tpe1 = makeFormalsDeclared(tpt.tpe, tree.rhs)
             if tpe1 `ne` tpt.tpe
-            then TypeTree(tpe1, inferred = false).withSpan(tree.span).withAttachmentsFrom(tpt)
+            then TypeTree(tpe1, inferred = true).withSpan(tree.span).withAttachmentsFrom(tpt)
             else tpt
           else tpt
       case tpt =>
         tpt
 
-    /** Insert a `@caps.inferred` annotation on the final result type
-     *  if a function type `tp` corresponding to a closure `tp`. "Final"
-     *  means: a result type that does not correspond to a nested closure.
+    /** Insert a `@caps.declared` annotation on all parameter infos
+     *  of a function type `tp` corresponding to a closure `rhs` that contain
+     *  a "retains" annotation. TypeBound infos of type parameters get
+     *  a `@caps.declared` on each bound that contains a "retains" annotation.
      */
-    private def makeResultTypeInferred(tp: Type, rhs: Tree)(using Context): Type = rhs match
+    private def makeFormalsDeclared(tp: Type, rhs: Tree)(using Context): Type = rhs match
       case closureDef(mdef) =>
         closuresNeedingExplicify += mdef.symbol
+
+        def makeFormalDeclared(formal: Type)(using Context): Type = formal match
+          case formal @ TypeBounds(lo, hi) =>
+            formal.derivedTypeBounds(makeFormalDeclared(lo), makeFormalDeclared(hi))
+          case _ =>
+            val cleanup = CleanupRetains()
+            cleanup(formal) // only used for setting cleanup.retainsFound as a side effect
+            if cleanup.retainsFound && !formal.hasAnnotation(defn.DeclaredAnnot)
+            then AnnotatedType(formal, Annotation(defn.DeclaredAnnot, rhs.span))
+            else formal
+
         tp match
-          case FunctionOrMethod(args, res) =>
-            val rhs1 = args match
+          case FunctionOrMethod(formals, res) =>
+            val rhs1 = formals match
               case (_: TypeBounds) :: _ => rhs
               case _ => mdef.rhs
-            tp.derivedFunctionOrMethod(args, makeResultTypeInferred(res, rhs1))
-      case _ =>
-        if tp.hasAnnotation(defn.InferredAnnot) then tp
-        else AnnotatedType(CleanupRetains()(tp), Annotation(defn.InferredAnnot, rhs.span))
+            val formals1 = formals.map(makeFormalDeclared)
+            tp.derivedFunctionOrMethod(formals1, makeFormalsDeclared(res, rhs1))
+          case _ => tp
+      case _ => tp
 
     /** If one of `trees` is a spread of an expression that is not idempotent, lift out all
      *  non-idempotent expressions (not just the spreads) and apply `within` to the resulting
