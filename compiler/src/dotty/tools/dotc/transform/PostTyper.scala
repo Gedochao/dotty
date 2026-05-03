@@ -412,9 +412,8 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
      *       For an overriding symbol the retains annotations come from the explicitly
      *       declared parent types, so should be kept.
      *   (2) If the definition is not a closure, but its right hand side is a
-     *       closure that is either itself polymorphic or is the prefix
-     *       of a curried polymorphic closure, make all parameter types corresponding
-     *       to nested closures non-inferred by adding `@caps.declared` annotations.
+     *       closure, make all parameter types corresponding to nested closures
+     *       non-inferred by adding `@caps.declared` annotations.
      *       In this case we need to keep references to bound capset variables in retains
      *       clauses of subsequent parameters.
      *   (3) If the definition is a closure that is a curried result of the
@@ -423,27 +422,18 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
      */
     private def explicifyTpt(tree: ValOrDefDef)(using Context): Tree = tree.tpt match
       case tpt: InferredTypeTree if Feature.ccEnabled =>
-        if tree.symbol.allOverriddenSymbols.hasNext then
+        if tree.symbol.allOverriddenSymbols.hasNext then // (1)
           tpd.cpy.TypeTree(tpt)(inferred = false)
-        else
-          def hasPolyClosure(mdef: DefDef): Boolean =
-            mdef.symbol.info.isInstanceOf[PolyType]
-            || mdef.rhs.match
-                case closureDef(mdef1) => hasPolyClosure(mdef1)
-                case _ => false
-          val needsExplicify = tree.rhs match
-            case closureDef(mdef) =>
-              if tree.symbol.isAnonymousFunction
-              then closuresNeedingExplicify.remove(tree.symbol)
-              else hasPolyClosure(mdef)
-            case _ =>
-              false
-          if needsExplicify then
+        else tree.rhs match
+          case closureDef(mdef)
+          if !tree.symbol.isAnonymousFunction // (2)
+            || closuresNeedingExplicify.remove(tree.symbol) // (3)
+          =>
             val tpe1 = makeFormalsDeclared(tpt.tpe, tree.rhs)
             if tpe1 `ne` tpt.tpe
             then TypeTree(tpe1, inferred = true).withSpan(tree.span).withAttachmentsFrom(tpt)
             else tpt
-          else tpt
+          case _ => tpt
       case tpt =>
         tpt
 
@@ -471,7 +461,7 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
             val rhs1 = formals match
               case (_: TypeBounds) :: _ => rhs
               case _ => mdef.rhs
-            val formals1 = formals.map(makeFormalDeclared)
+            val formals1 = formals.mapConserve(makeFormalDeclared)
             tp.derivedFunctionOrMethod(formals1, makeFormalsDeclared(res, rhs1))
           case _ => tp
       case _ => tp
