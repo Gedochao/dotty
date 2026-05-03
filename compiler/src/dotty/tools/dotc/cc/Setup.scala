@@ -309,10 +309,12 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
     *  @param typeArgFormal if `tp` is an an inferred type argument, the formal parameter info,
     *                       otherwise NotType
     */
-  private def transformInferredType(tp: Type, sym: Symbol, typeArgFormal: Type = NoType)(using Context): Type = {
+  private def transformInferredType(tp: Type, sym: Symbol, typeArgFormal: Type = NoType, initialVariance: Int = 1)(using Context): Type = {
+
     def mapInferred(inCaptureRefinement: Boolean): TypeMap = new TypeMap with SetupTypeMap {
       override def toString = "map inferred"
 
+      variance = initialVariance
       var refiningNames: Set[Name] = Set()
 
       /** Refine a possibly applied class type C where the class has tracked parameters
@@ -347,7 +349,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
           decorate(
             addCaptureRefinements(normalizeCaptures(normalizeFunctions(tp1, tp))),
             CaptureSet.VarInTypeTree(ctx.owner, _, nestedOK = !ctx.mode.is(Mode.CCPreciseOwner), isRefining = inCaptureRefinement),
-            transformExplicitType(_, sym),
+            transformExplicitType(_, sym, initialVariance = variance),
             typeArgFormal)
 
         tp match
@@ -357,7 +359,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             addVar(apply(parent))
           case AnnotatedType(parent, annot)
           if annot.symbol == defn.DeclaredAnnot =>
-            transformExplicitType(parent, sym)
+            transformExplicitType(parent, sym, initialVariance = variance)
           case tp @ RefinedType(parent, rname, rinfo) =>
             val saved = refiningNames
             refiningNames += rname
@@ -387,7 +389,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
    *   5. Schedule deferred well-formed tests for types with retains annotations.
    *   6. Perform normalizeCaptures
    */
-  private def transformExplicitType(tp: Type, sym: Symbol, tptToCheck: Tree = EmptyTree)(using Context): Type =
+  private def transformExplicitType(tp: Type, sym: Symbol, tptToCheck: Tree = EmptyTree, initialVariance: Int = 1)(using Context): Type =
 
     def fail(msg: Message) =
       if !tptToCheck.isEmpty then report.error(msg, tptToCheck.srcPos)
@@ -408,6 +410,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
 
     object toCapturing extends DeepTypeMap, SetupTypeMap {
       override def toString = "transformExplicitType"
+      variance = initialVariance
 
       private var enclMethodType: MethodType | Null =  null
 
@@ -488,7 +491,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             if ann.symbol == defn.UncheckedCapturesAnnot then
               makeUnchecked(this(parent))
             else if ann.symbol == defn.InferredAnnot then
-              transformInferredType(parent, sym)
+              transformInferredType(parent, sym, initialVariance = variance)
                 // typeArgFormal is NoType here since we are inferring inside an argument, not at the toplevel
             else
               t.derivedAnnotatedType(this(parent), ann)
@@ -533,7 +536,8 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             |The `fresh` capability may only be used in the result of a function type,
             |following a function arrow such as `=>` or `->`.""")
 
-    globalCapToLocal(tp2, Origin.InDecl(sym))
+    if initialVariance < 0 then tp2
+    else globalCapToLocal(tp2, Origin.InDecl(sym))
   end transformExplicitType
 
   /** Update info of `sym` for CheckCaptures phase only */
