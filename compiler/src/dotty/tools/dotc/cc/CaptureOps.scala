@@ -909,6 +909,8 @@ class CleanupRetains(using Context) extends TypeMap:
         if annot.symbol == defn.RetainsCapAnnot then tp
         else AnnotatedType(this(parent), RetainingAnnotation(annot.symbol.asClass, defn.NothingType))
       else this(parent)
+    case tp @ AnnotatedType(parent, annot) if annot.symbol == defn.DeclaredAnnot =>
+      tp
     case _ => mapOver(tp)
 
 /** A base class for extractors that match annotated types with a specific
