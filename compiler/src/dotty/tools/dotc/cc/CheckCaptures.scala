@@ -1176,8 +1176,8 @@ class CheckCaptures extends Recheck, SymTransformer:
             assert(params.hasSameLengthAs(argTypes), i"$mdef vs $pt, ${params}")
             inContext(ctx.withOwner(anonfun)) {
               // Propagate argument types to parameter types with inferred types
-              for (argType, param) <- argTypes.lazyZip(params) do
-                param.asInstanceOf[ValDef].tpt match
+              for case (argType, param: ValDef) <- argTypes.lazyZip(params) do
+                param.tpt match
                   case paramTpt: InferredTypeTree =>
                     val localArgType = globalCapToLocal(argType, Origin.Parameter(param.symbol))
                     adoptCaptures(param.symbol.info, localArgType)
