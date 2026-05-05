@@ -3316,6 +3316,10 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
     // This is a compromise to be able to fix #21295 without breaking the world.
     def cannotBeNothing(tp: Type): Boolean = tp match
       case tp: TypeParamRef => cannotBeNothing(tp.paramInfo)
+      case tp: TypeRef if tp.symbol.is(TypeParam) =>
+        tp.symbol.info match
+          case bounds: TypeBounds => cannotBeNothing(bounds)
+          case _                  => !(tp.loBound.stripTypeVar <:< defn.NothingType)
       case _                => !(tp.loBound.stripTypeVar <:< defn.NothingType)
 
     // It is possible to conclude that two types applied are disjoint by
